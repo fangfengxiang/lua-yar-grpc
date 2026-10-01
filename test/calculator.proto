@@ -1,0 +1,21 @@
+// test/calculator.proto
+// 测试用 proto：计算服务 Calculator，覆盖标量返回 / repeated 输入 / 数组返回 / table 返回 四种 retval 形态
+// 被 e2e 测试加载，用于验证真实 pb 二进制流 ↔ YAR 协议 JSON 转换
+// 与 spec/support/proto.lua 的 PROTO_TEXT 保持一致
+syntax = "proto3";
+
+service Calculator {
+  rpc Add(Calculator_AddRequest) returns (Calculator_AddResponse);
+  rpc Sum(Calculator_SumRequest) returns (Calculator_SumResponse);
+  rpc List(Calculator_ListRequest) returns (Calculator_ListResponse);
+  rpc Echo(Calculator_EchoRequest) returns (Calculator_EchoResponse);
+}
+
+message Calculator_AddRequest  { int32 a = 1; int32 b = 2; }
+message Calculator_AddResponse { int32 result = 1; }
+message Calculator_SumRequest  { repeated int32 nums = 1; }
+message Calculator_SumResponse { int32 total = 1; }
+message Calculator_ListRequest  { int32 n = 1; }
+message Calculator_ListResponse { repeated int32 items = 1; }
+message Calculator_EchoRequest  { string msg = 1; }
+message Calculator_EchoResponse { string msg = 1; }

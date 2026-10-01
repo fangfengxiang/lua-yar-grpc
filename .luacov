@@ -1,0 +1,19 @@
+-- luacov 配置：覆盖率采集范围与排除项
+-- 运行：busted --coverage（busted 内部调用 luacov）
+
+-- 白名单模式：只跟踪 src/yar_grpc/ 下的模块
+include = {
+    "src/yar_grpc/.*",
+}
+
+-- 排除项（在 include 范围内进一步排除）
+-- init.lua 仅导出聚合，无逻辑
+exclude = {
+    "src/yar_grpc/init$",
+}
+
+-- 报告文件名
+reportfile = "luacov.report.out"
+
+-- 每处理 100 行保存一次统计
+savestepsize = 100

@@ -1,0 +1,8 @@
+-- busted 配置：默认扫描 spec/ 和 test/ 目录
+-- 覆盖率由 CI 命令行 --coverage 显式启用，不在配置中强制
+return {
+    default = {
+        -- 空字符串匹配所有 .lua 文件，spec/ 和 test/ 都能发现
+        pattern = "",
+    },
+}

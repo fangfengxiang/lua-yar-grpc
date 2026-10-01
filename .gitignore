@@ -1,0 +1,32 @@
+# AI tools / project metadata
+.codebuddy
+.claude
+.spec
+
+# Compiled artifacts
+*.o
+*.so
+*.dll
+*.dylib
+
+# LuaJIT lmprof output
+*.lmprof
+
+# luarocks build artifacts
+*.rock
+
+# test coverage
+luacov.stats.out
+luacov.report.out
+.coverage/
+
+# editor / OS
+.DS_Store
+*.swp
+*~
+.idea/
+.vscode/
+
+# generated rockspecs (CI 仅保留 scm rockspec，版本化 rockspec 由 release 生成)
+lua-yar-grpc-*.rockspec
+!lua-yar-grpc-scm-1.rockspec

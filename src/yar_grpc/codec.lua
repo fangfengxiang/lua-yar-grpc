@@ -1,0 +1,85 @@
+-- gRPC 帧编解码：5 字节帧头（1 字节压缩标志 + 4 字节大端长度）+ protobuf payload
+-- 参考：gRPC over HTTP/2 协议规范 (https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md)
+-- 纯 Lua，零 ngx.* 依赖，可在裸 LuaJIT / Lua 5.1 单测
+
+---@class yar_grpc.codec
+local _M = {}
+
+-- gRPC 帧头固定大小：1 字节压缩标志 + 4 字节大端长度
+---@type integer
+_M.FRAME_HEADER_SIZE = 5
+
+-- 压缩标志常量
+---@type integer
+_M.COMPRESSION_NONE = 0
+
+-- 大端 uint32 编码（gRPC 帧头长度字段，bridge 自包含实现，不依赖外部库）
+---@param n integer
+---@return string
+local function pack_u32_be(n)
+    return string.char(
+        math.floor(n / 0x1000000) % 0x100,
+        math.floor(n / 0x10000) % 0x100,
+        math.floor(n / 0x100) % 0x100,
+        n % 0x100)
+end
+
+-- 大端 uint32 解码（gRPC 帧头长度字段）
+---@param s string
+---@param offset? integer
+---@return integer
+local function unpack_u32_be(s, offset)
+    offset = offset or 1
+    local a, b, c, d = string.byte(s, offset, offset + 3)
+    return a * 0x1000000 + b * 0x10000 + c * 0x100 + d
+end
+
+--- 解析 gRPC 帧
+---@param body string HTTP/2 请求体
+---@return integer|nil compressed_flag 压缩标志（0=未压缩）
+---@return string|nil payload protobuf payload
+---@return integer|nil frame_size 完整帧大小（帧头 + payload）
+---@return string|nil err 错误信息（失败时 compressed_flag 为 nil）
+function _M.decode_frame(body)
+    if not body or #body == 0 then
+        return nil, nil, nil, "empty request body"
+    end
+    if #body < _M.FRAME_HEADER_SIZE then
+        return nil, nil, nil, "incomplete gRPC frame header"
+    end
+
+    local compressed_flag = string.byte(body, 1, 1)
+    local payload_len     = unpack_u32_be(body, 2)
+
+    if #body < _M.FRAME_HEADER_SIZE + payload_len then
+        return nil, nil, nil, "incomplete gRPC frame payload"
+    end
+
+    local payload = string.sub(
+        body,
+        _M.FRAME_HEADER_SIZE + 1,
+        _M.FRAME_HEADER_SIZE + payload_len)
+
+    local frame_size = _M.FRAME_HEADER_SIZE + payload_len
+
+    return compressed_flag, payload, frame_size
+end
+
+--- 编码 gRPC 帧
+---@param payload string protobuf payload（可为空字符串）
+---@return string 完整 gRPC 帧（5 字节帧头 + payload）
+function _M.encode_frame(payload)
+    payload = payload or ""
+    local flag = string.char(_M.COMPRESSION_NONE)
+    return flag .. pack_u32_be(#payload) .. payload
+end
+
+--- 检测请求体是否包含多个 gRPC 帧（流式模式检测）
+---@param body string HTTP/2 请求体
+---@param first_frame_size integer 第一个帧的完整大小
+---@return boolean true 表示存在多个帧（流式模式）
+function _M.has_multiple_frames(body, first_frame_size)
+    return body ~= nil and #body > first_frame_size
+end
+
+return _M

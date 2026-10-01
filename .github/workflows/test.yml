@@ -1,0 +1,58 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Lua
+        uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: "5.1"
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+      - name: Install luacheck
+        run: luarocks install luacheck
+      - name: Lint
+        run: luacheck src/yar_grpc spec test
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        lua: ["5.1", "5.3", "luajit-2.1"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Lua ${{ matrix.lua }}
+        uses: leafo/gh-actions-lua@v13
+        with:
+          luaVersion: ${{ matrix.lua }}
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v6
+      - name: Install dependencies
+        run: |
+          luarocks install --local busted
+          luarocks install --local luacov
+      - name: Build
+        run: luarocks make --local
+      - name: Test
+        run: |
+          eval $(luarocks path --local)
+          busted --coverage -o utfTerminal spec/ test/pb_e2e_test.lua test/grpc_e2e_test.lua
+      - name: Generate coverage report
+        if: matrix.lua == '5.1'
+        run: luacov
+      - name: Upload coverage
+        if: matrix.lua == '5.1'
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./luacov.report.out
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
